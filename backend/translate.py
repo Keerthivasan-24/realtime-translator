@@ -7,7 +7,8 @@ import httpx
 LANG_NAMES = {
     "en": "English", "es": "Spanish", "fr": "French",
     "de": "German",  "zh": "Chinese", "ja": "Japanese",
-    "ar": "Arabic",  "hi": "Hindi",   "pt": "Portuguese", "ru": "Russian",
+    "ar": "Arabic",  "hi": "Hindi",   "pt": "Portuguese",
+    "ru": "Russian", "ta": "Tamil",
 }
 
 
