@@ -111,7 +111,7 @@ async def room_ws(websocket: WebSocket, room_id: str):
                 # Speaker label: use peer label (A/B) or custom from meeting mode
                 speaker_label = peer_labels[room_id].get(websocket, "?")
 
-                transcript_text = await transcribe_chunk(pcm_data)
+                transcript_text = await transcribe_chunk(pcm_data, src_lang)
                 print(f"[STT] pcm_size={len(pcm_data)} transcript='{transcript_text}'", flush=True)
 
                 if transcript_text:

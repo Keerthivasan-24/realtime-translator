@@ -17,7 +17,16 @@ async def translate(text: str, src_lang: str, tgt_lang: str) -> str:
     if not text.strip() or src_lang == tgt_lang:
         return text
 
-    lang_pair = f"{src_lang}|{tgt_lang}"
+    # MyMemory uses full locale codes for better accuracy
+    LOCALE = {
+        "en": "en-US", "ta": "ta-IN", "hi": "hi-IN",
+        "es": "es-ES", "fr": "fr-FR", "de": "de-DE",
+        "zh": "zh-CN", "ja": "ja-JP", "ar": "ar-SA",
+        "pt": "pt-BR", "ru": "ru-RU",
+    }
+    src = LOCALE.get(src_lang, src_lang)
+    tgt = LOCALE.get(tgt_lang, tgt_lang)
+    lang_pair = f"{src}|{tgt}"
 
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
