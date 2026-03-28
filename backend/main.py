@@ -28,6 +28,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "realtime-translator"}
+
 # ── In-memory state ───────────────────────────────────────────────────────────
 # rooms[room_id] = set of WebSocket connections (max 2 peers)
 rooms: Dict[str, Set[WebSocket]] = {}
