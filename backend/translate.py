@@ -1,41 +1,43 @@
 """
-Translation using Helsinki-NLP MarianMT models from Hugging Face.
-Models are downloaded on first use and cached locally.
+Translation via OpenAI GPT — lightweight, no local models.
 """
-from transformers import MarianMTModel, MarianTokenizer
+import os
+import httpx
 
-_cache: dict = {}
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-# Map of "src-tgt" → Helsinki model name
-MODEL_MAP = {
-    "en-es": "Helsinki-NLP/opus-mt-en-es",
-    "en-fr": "Helsinki-NLP/opus-mt-en-fr",
-    "en-de": "Helsinki-NLP/opus-mt-en-de",
-    "en-zh": "Helsinki-NLP/opus-mt-en-zh",
-    "en-ja": "Helsinki-NLP/opus-mt-en-jap",
-    "es-en": "Helsinki-NLP/opus-mt-es-en",
-    "fr-en": "Helsinki-NLP/opus-mt-fr-en",
-    "de-en": "Helsinki-NLP/opus-mt-de-en",
+LANG_NAMES = {
+    "en": "English", "es": "Spanish", "fr": "French",
+    "de": "German",  "zh": "Chinese", "ja": "Japanese",
+    "ar": "Arabic",  "hi": "Hindi",   "pt": "Portuguese", "ru": "Russian",
 }
 
 
-def _load(src: str, tgt: str):
-    key = f"{src}-{tgt}"
-    if key not in _cache:
-        model_name = MODEL_MAP.get(key)
-        if not model_name:
-            raise ValueError(f"No model available for {key}. Supported: {list(MODEL_MAP.keys())}")
-        tokenizer = MarianTokenizer.from_pretrained(model_name)
-        model = MarianMTModel.from_pretrained(model_name)
-        _cache[key] = (tokenizer, model)
-    return _cache[key]
+async def translate(text: str, src_lang: str, tgt_lang: str) -> str:
+    """Translate text using OpenAI GPT-4o-mini."""
+    if not text.strip() or src_lang == tgt_lang:
+        return text
+    if not OPENAI_API_KEY:
+        return f"[Translation unavailable — set OPENAI_API_KEY] {text}"
 
+    src = LANG_NAMES.get(src_lang, src_lang)
+    tgt = LANG_NAMES.get(tgt_lang, tgt_lang)
 
-def translate(text: str, src_lang: str, tgt_lang: str) -> str:
-    """Translate text from src_lang to tgt_lang. Returns empty string on empty input."""
-    if not text.strip():
-        return ""
-    tokenizer, model = _load(src_lang, tgt_lang)
-    inputs = tokenizer([text], return_tensors="pt", padding=True, truncation=True)
-    translated = model.generate(**inputs)
-    return tokenizer.decode(translated[0], skip_special_tokens=True)
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": f"Translate from {src} to {tgt}. Return only the translated text, nothing else."},
+                    {"role": "user", "content": text},
+                ],
+                "max_tokens": 200,
+                "temperature": 0.3,
+            },
+        )
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"].strip()
+        return text

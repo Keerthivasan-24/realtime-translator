@@ -1,12 +1,8 @@
 fastapi
 uvicorn[standard]
 websockets
-faster-whisper
-transformers
-sentencepiece
-torch
-numpy
-python-multipart
-openai
 httpx
+openai
+python-multipart
 reportlab
+python-dotenv

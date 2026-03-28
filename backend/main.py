@@ -111,13 +111,10 @@ async def room_ws(websocket: WebSocket, room_id: str):
                 # Speaker label: use peer label (A/B) or custom from meeting mode
                 speaker_label = peer_labels[room_id].get(websocket, "?")
 
-                loop = asyncio.get_event_loop()
-                transcript_text = await loop.run_in_executor(None, transcribe_chunk, pcm_data)
+                transcript_text = await transcribe_chunk(pcm_data)
 
                 if transcript_text:
-                    translated_text = await loop.run_in_executor(
-                        None, translate, transcript_text, src_lang, tgt_lang
-                    )
+                    translated_text = await translate(transcript_text, src_lang, tgt_lang)
 
                     # Store in transcript log
                     entry = {
@@ -168,9 +165,8 @@ async def get_summary(room_id: str):
     entries = transcripts.get(room_id, [])
     if not entries:
         raise HTTPException(404, "No transcript found for this room")
-    loop = asyncio.get_event_loop()
-    summary = await loop.run_in_executor(None, generate_summary, entries)
-    action_items = await loop.run_in_executor(None, extract_action_items, entries)
+    summary = await generate_summary(entries)
+    action_items = await extract_action_items(entries)
     return {"summary": summary, "action_items": action_items}
 
 
@@ -179,9 +175,8 @@ async def get_summary(room_id: str):
 @app.get("/export/{room_id}/txt")
 async def export_txt(room_id: str):
     entries = transcripts.get(room_id, [])
-    loop = asyncio.get_event_loop()
-    summary = await loop.run_in_executor(None, generate_summary, entries)
-    action_items = await loop.run_in_executor(None, extract_action_items, entries)
+    summary = await generate_summary(entries)
+    action_items = await extract_action_items(entries)
     content = build_txt(room_id, entries, summary, action_items)
     return Response(
         content=content,
@@ -193,9 +188,8 @@ async def export_txt(room_id: str):
 @app.get("/export/{room_id}/pdf")
 async def export_pdf(room_id: str):
     entries = transcripts.get(room_id, [])
-    loop = asyncio.get_event_loop()
-    summary = await loop.run_in_executor(None, generate_summary, entries)
-    action_items = await loop.run_in_executor(None, extract_action_items, entries)
+    summary = await generate_summary(entries)
+    action_items = await extract_action_items(entries)
     content = build_pdf(room_id, entries, summary, action_items)
     return Response(
         content=content,

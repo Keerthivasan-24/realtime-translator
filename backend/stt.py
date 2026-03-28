@@ -1,32 +1,46 @@
 """
-Speech-to-Text using Faster-Whisper for low-latency streaming transcription.
+STT via OpenAI Whisper API — no local model, no memory issues.
+Falls back to empty string if no API key is set.
 """
+import os
 import io
-import numpy as np
-from faster_whisper import WhisperModel
+import struct
+import httpx
 
-# Load once at startup — use "base" for speed, "small"/"medium" for accuracy
-_model = None
-
-def get_model() -> WhisperModel:
-    global _model
-    if _model is None:
-        # device="cpu" works everywhere; switch to "cuda" if you have a GPU
-        _model = WhisperModel("base", device="cpu", compute_type="int8")
-    return _model
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 
-def transcribe_chunk(audio_bytes: bytes, sample_rate: int = 16000) -> str:
-    """
-    Transcribe a raw PCM audio chunk (16-bit, mono, 16kHz).
-    Returns the transcribed text string.
-    """
-    model = get_model()
+def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 16000) -> bytes:
+    """Wrap raw 16-bit mono PCM bytes in a WAV container."""
+    num_samples = len(pcm_bytes) // 2
+    wav_buf = io.BytesIO()
+    # WAV header
+    wav_buf.write(b"RIFF")
+    wav_buf.write(struct.pack("<I", 36 + len(pcm_bytes)))
+    wav_buf.write(b"WAVE")
+    wav_buf.write(b"fmt ")
+    wav_buf.write(struct.pack("<IHHIIHH", 16, 1, 1, sample_rate,
+                              sample_rate * 2, 2, 16))
+    wav_buf.write(b"data")
+    wav_buf.write(struct.pack("<I", len(pcm_bytes)))
+    wav_buf.write(pcm_bytes)
+    return wav_buf.getvalue()
 
-    # Convert raw bytes → float32 numpy array
-    audio_np = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-    # faster-whisper expects a float32 numpy array
-    segments, _ = model.transcribe(audio_np, language=None, vad_filter=True)
-    text = " ".join(seg.text.strip() for seg in segments)
-    return text.strip()
+async def transcribe_chunk(audio_bytes: bytes, sample_rate: int = 16000) -> str:
+    """Transcribe PCM audio using OpenAI Whisper API."""
+    if not OPENAI_API_KEY or len(audio_bytes) < 1000:
+        return ""
+
+    wav_bytes = _pcm_to_wav(audio_bytes, sample_rate)
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            files={"file": ("audio.wav", wav_bytes, "audio/wav")},
+            data={"model": "whisper-1"},
+        )
+        if resp.status_code == 200:
+            return resp.json().get("text", "").strip()
+        return ""
