@@ -79,6 +79,17 @@ async def room_ws(websocket: WebSocket, room_id: str):
     }))
     await broadcast_to_others(room_id, websocket, json.dumps({"type": "peer_joined"}))
 
+    async def keepalive():
+        """Send a ping every 20s to prevent Render's proxy from closing the WS."""
+        while True:
+            await asyncio.sleep(20)
+            try:
+                await websocket.send_text(json.dumps({"type": "ping"}))
+            except Exception:
+                break
+
+    ping_task = asyncio.create_task(keepalive())
+
     try:
         while True:
             raw = await websocket.receive()
@@ -134,6 +145,7 @@ async def room_ws(websocket: WebSocket, room_id: str):
     except WebSocketDisconnect:
         pass
     finally:
+        ping_task.cancel()
         rooms[room_id].discard(websocket)
         peer_labels[room_id].pop(websocket, None)
         if not rooms[room_id]:

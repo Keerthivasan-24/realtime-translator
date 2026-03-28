@@ -61,6 +61,7 @@ export default function VideoCall({ roomId, srcLang, tgtLang, onLeave }) {
       ws.onmessage = async (event) => {
         const msg = JSON.parse(event.data)
         switch (msg.type) {
+          case 'ping': break // keepalive, ignore
           case 'joined':
             if (msg.shouldInitiate) { setStatus('Peer found, connecting...'); await createOffer() }
             break
