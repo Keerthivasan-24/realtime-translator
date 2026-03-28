@@ -41,6 +41,7 @@ async def transcribe_chunk(audio_bytes: bytes, sample_rate: int = 16000) -> str:
             files={"file": ("audio.wav", wav_bytes, "audio/wav")},
             data={"model": "whisper-1"},
         )
+        print(f"[STT API] status={resp.status_code} body={resp.text[:200]}", flush=True)
         if resp.status_code == 200:
             return resp.json().get("text", "").strip()
         return ""

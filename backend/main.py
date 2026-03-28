@@ -112,9 +112,11 @@ async def room_ws(websocket: WebSocket, room_id: str):
                 speaker_label = peer_labels[room_id].get(websocket, "?")
 
                 transcript_text = await transcribe_chunk(pcm_data)
+                print(f"[STT] pcm_size={len(pcm_data)} transcript='{transcript_text}'", flush=True)
 
                 if transcript_text:
                     translated_text = await translate(transcript_text, src_lang, tgt_lang)
+                    print(f"[TRANSLATE] {src_lang}→{tgt_lang} '{transcript_text}' → '{translated_text}'", flush=True)
 
                     # Store in transcript log
                     entry = {
@@ -141,6 +143,8 @@ async def room_ws(websocket: WebSocket, room_id: str):
 
     except WebSocketDisconnect:
         pass
+    except Exception:
+        pass  # suppress ASGI noise on abrupt disconnects
     finally:
         ping_task.cancel()
         rooms[room_id].discard(websocket)
