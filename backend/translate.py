@@ -1,10 +1,8 @@
 """
-Translation via OpenAI GPT — lightweight, no local models.
+Translation via MyMemory API — completely free, no API key needed.
+Limit: 5000 chars/day on free tier (enough for normal calls).
 """
-import os
 import httpx
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 LANG_NAMES = {
     "en": "English", "es": "Spanish", "fr": "French",
@@ -14,30 +12,22 @@ LANG_NAMES = {
 
 
 async def translate(text: str, src_lang: str, tgt_lang: str) -> str:
-    """Translate text using OpenAI GPT-4o-mini."""
+    """Translate text using MyMemory free API."""
     if not text.strip() or src_lang == tgt_lang:
         return text
-    if not OPENAI_API_KEY:
-        return f"[Translation unavailable — set OPENAI_API_KEY] {text}"
 
-    src = LANG_NAMES.get(src_lang, src_lang)
-    tgt = LANG_NAMES.get(tgt_lang, tgt_lang)
+    lang_pair = f"{src_lang}|{tgt_lang}"
 
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}",
-                     "Content-Type": "application/json"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": f"Translate from {src} to {tgt}. Return only the translated text, nothing else."},
-                    {"role": "user", "content": text},
-                ],
-                "max_tokens": 200,
-                "temperature": 0.3,
-            },
+        resp = await client.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": text, "langpair": lang_pair},
         )
         if resp.status_code == 200:
-            return resp.json()["choices"][0]["message"]["content"].strip()
+            data = resp.json()
+            translated = data.get("responseData", {}).get("translatedText", "")
+            print(f"[TRANSLATE] {src_lang}→{tgt_lang} '{text}' → '{translated}'", flush=True)
+            # MyMemory returns error messages as translated text sometimes
+            if translated and not translated.upper().startswith("MYMEMORY"):
+                return translated
         return text

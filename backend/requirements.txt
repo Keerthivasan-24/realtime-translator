@@ -2,7 +2,7 @@ fastapi
 uvicorn[standard]
 websockets
 httpx
-openai
 python-multipart
 reportlab
 python-dotenv
+openai
