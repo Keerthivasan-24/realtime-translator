@@ -39,6 +39,9 @@ def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 16000) -> bytes:
     return wav_buf.getvalue()
 
 
+# Models that require nova-3 (nova-2 doesn't support these)
+NOVA3_LANGS = {"ta", "hi"}
+
 async def transcribe_chunk(audio_bytes: bytes, src_lang: str = "en", sample_rate: int = 16000) -> str:
     if not DEEPGRAM_API_KEY:
         print("[STT] No DEEPGRAM_API_KEY set", flush=True)
@@ -47,12 +50,13 @@ async def transcribe_chunk(audio_bytes: bytes, src_lang: str = "en", sample_rate
         return ""
 
     wav_bytes = _pcm_to_wav(audio_bytes, sample_rate)
-    dg_lang = DEEPGRAM_LANG.get(src_lang, src_lang)
+    dg_lang  = DEEPGRAM_LANG.get(src_lang, src_lang)
+    model    = "nova-3" if src_lang in NOVA3_LANGS else "nova-2"
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
             f"https://api.deepgram.com/v1/listen"
-            f"?model=nova-2"
+            f"?model={model}"
             f"&language={dg_lang}"
             f"&smart_format=true"
             f"&punctuate=true"
