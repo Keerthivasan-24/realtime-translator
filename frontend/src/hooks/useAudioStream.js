@@ -4,7 +4,7 @@
  */
 import { useRef, useCallback } from 'react'
 
-const CHUNK_INTERVAL_MS = 1500  // longer chunks = better STT accuracy
+const CHUNK_INTERVAL_MS = 2500  // 2.5s chunks = better sentence completion + fewer API calls
 const SAMPLE_RATE = 16000       // Whisper expects 16kHz
 
 export function useAudioStream({ wsRef, srcLang, tgtLang }) {

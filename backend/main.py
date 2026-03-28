@@ -42,6 +42,9 @@ transcripts: Dict[str, List[dict]] = {}
 # peer labels: first joiner = "A", second = "B"
 peer_labels: Dict[str, Dict[WebSocket, str]] = {}
 
+# last transcript per websocket for deduplication
+last_transcript: Dict[WebSocket, str] = {}
+
 
 def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%H:%M:%S")
@@ -119,6 +122,11 @@ async def room_ws(websocket: WebSocket, room_id: str):
                 print(f"[STT] pcm_size={len(pcm_data)} transcript='{transcript_text}'", flush=True)
 
                 if transcript_text:
+                    # Deduplicate — skip if same as last transcript from this peer
+                    if transcript_text == last_transcript.get(websocket):
+                        continue
+                    last_transcript[websocket] = transcript_text
+
                     translated_text = await translate(transcript_text, src_lang, tgt_lang)
                     print(f"[TRANSLATE] {src_lang}→{tgt_lang} '{transcript_text}' → '{translated_text}'", flush=True)
 
@@ -133,11 +141,14 @@ async def room_ws(websocket: WebSocket, room_id: str):
                     }
                     transcripts[room_id].append(entry)
 
-                    # Send subtitle to the other peer
-                    await broadcast_to_others(room_id, websocket, json.dumps({
-                        "type": "subtitle",
-                        **entry,
-                    }))
+                    # Send subtitle to the other peer AND back to sender (for conversation/meeting mode)
+                    subtitle_msg = json.dumps({"type": "subtitle", **entry})
+                    await broadcast_to_others(room_id, websocket, subtitle_msg)
+                    # Also send to self so conversation/meeting screens see their own translation
+                    try:
+                        await websocket.send_text(subtitle_msg)
+                    except Exception:
+                        pass
 
             # ── Text frame → WebRTC signaling ─────────────────────────────
             elif "text" in raw and raw["text"]:
@@ -151,6 +162,7 @@ async def room_ws(websocket: WebSocket, room_id: str):
         pass  # suppress ASGI noise on abrupt disconnects
     finally:
         ping_task.cancel()
+        last_transcript.pop(websocket, None)
         rooms[room_id].discard(websocket)
         peer_labels[room_id].pop(websocket, None)
         if not rooms[room_id]:
