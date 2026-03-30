@@ -69,7 +69,9 @@ async def room_ws(websocket: WebSocket, room_id: str):
         transcripts[room_id] = []
         peer_labels[room_id] = {}
 
-    if len(rooms[room_id]) >= 2:
+    # Video rooms max 2 peers; conversation/meeting rooms (prefixed) allow more
+    is_video_room = not (room_id.startswith("conv-") or room_id.startswith("meeting-"))
+    if is_video_room and len(rooms[room_id]) >= 2:
         await websocket.send_text(json.dumps({"type": "error", "message": "Room is full"}))
         await websocket.close()
         return
@@ -141,14 +143,16 @@ async def room_ws(websocket: WebSocket, room_id: str):
                     }
                     transcripts[room_id].append(entry)
 
-                    # Send subtitle to the other peer AND back to sender (for conversation/meeting mode)
                     subtitle_msg = json.dumps({"type": "subtitle", **entry})
-                    await broadcast_to_others(room_id, websocket, subtitle_msg)
-                    # Also send to self so conversation/meeting screens see their own translation
-                    try:
-                        await websocket.send_text(subtitle_msg)
-                    except Exception:
-                        pass
+                    if is_video_room:
+                        # Video mode: subtitle goes to the OTHER peer
+                        await broadcast_to_others(room_id, websocket, subtitle_msg)
+                    else:
+                        # Conversation/Meeting mode: send back to sender (they see their own translation)
+                        try:
+                            await websocket.send_text(subtitle_msg)
+                        except Exception:
+                            pass
 
             # ── Text frame → WebRTC signaling ─────────────────────────────
             elif "text" in raw and raw["text"]:

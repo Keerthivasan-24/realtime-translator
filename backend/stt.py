@@ -82,7 +82,7 @@ async def transcribe_chunk(audio_bytes: bytes, src_lang: str = "en", sample_rate
                 transcript  = alt.get("transcript", "").strip()
                 confidence  = alt.get("confidence", 0)
                 print(f"[STT] {model}/{dg_lang} conf={confidence:.2f} '{transcript}'", flush=True)
-                if confidence < 0.45 or not transcript:
+                if confidence < 0.35 or not transcript:
                     return ""
                 return transcript
             except (KeyError, IndexError):

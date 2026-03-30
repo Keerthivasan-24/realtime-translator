@@ -5,7 +5,6 @@ import { getLang } from '../config/languages'
 const WS_URL  = import.meta.env.VITE_WS_URL  || 'ws://localhost:8000'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const CHUNK_MS = 2500
-
 export default function ConversationScreen() {
   const [langA, setLangA]         = useState('en')
   const [langB, setLangB]         = useState('ta')
